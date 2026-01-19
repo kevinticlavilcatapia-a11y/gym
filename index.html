@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitZone Híbrido: Casa & Gym</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦍</text></svg>">
+    <style>
+        :root {
+            --primary: #e84118; /* Rojo Intenso */
+            --gym-mode: #00a8ff; /* Azul para Gym */
+            --home-mode: #4cd137; /* Verde para Casa */
+            --dark: #121212;
+            --card-bg: #1e272e;
+            --text: #f5f6fa;
+            --dim: #718093;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--dark);
+            color: var(--text);
+            margin: 0;
+            padding-bottom: 120px; /* Espacio para el player */
+            transition: background 0.5s;
+        }
+
+        /* --- HEADER & CONTROLES --- */
+        header {
+            background: rgba(18, 18, 18, 0.95);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid #333;
+            padding: 15px 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .header-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        h1 { margin: 0; font-size: 1.2rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* SWITCH CASA / GYM */
+        .switch-container {
+            display: flex;
+            background: #2f3640;
+            border-radius: 30px;
+            padding: 4px;
+            position: relative;
+            cursor: pointer;
+            width: 140px;
+            height: 36px;
+            box-sizing: border-box;
+        }
+
+        .switch-option {
+            flex: 1;
+            text-align: center;
+            z-index: 2;
+            font-size: 0.75rem;
+            font-weight: 700;
+            line-height: 28px;
+            transition: color 0.3s;
+        }
+
+        .switch-slider {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 50%; /* 66px aprox */
+            height: 28px;
+            background: var(--home-mode);
+            border-radius: 25px;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            z-index: 1;
+        }
+        
+        /* Estado Gym activo */
+        .switch-container.gym-active .switch-slider {
+            left: 68px; /* Mueve a la derecha */
+            background: var(--gym-mode);
+        }
+
+        /* SELECTOR NIVEL */
+        .level-select {
+            background: transparent;
+            color: var(--dim);
+            border: 1px solid #444;
+            border-radius: 10px;
+            padding: 5px;
+            font-size: 0.8rem;
+            margin-top: 5px;
+            width: 100%;
+        }
+
+        /* NAVEGACIÓN DÍAS */
+        .day-scroller {
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 5px;
+            scrollbar-width: none;
+        }
+        .day-scroller::-webkit-scrollbar { display: none; }
+        
+        .day-btn {
+            background: transparent;
+            border: 1px solid #333;
+            color: var(--dim);
+            padding: 8px 14px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-right: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .day-btn.active {
+            background: var(--text);
+            color: var(--dark);
+            font-weight: 800;
+            transform: scale(1.05);
+        }
+
+        /* --- GRID EJERCICIOS --- */
+        .container { max-width: 900px; margin: 20px auto; padding: 0 15px; }
+
+        .context-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+        }
+        .bg-home { background: rgba(76, 209, 55, 0.2); color: var(--home-mode); }
+        .bg-gym { background: rgba(0, 168, 255, 0.2); color: var(--gym-mode); }
+
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border: 1px solid #2d3436;
+            animation: fadeIn 0.4s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: 0; } }
+
+        .card-header {
+            height: 140px;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+        }
+        /* Gradientes CSS por defecto */
+        .card-header::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(to top, var(--card-bg), transparent);
+        }
+        .play-btn-overlay {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.3); cursor: pointer; transition: 0.3s;
+        }
+        .play-btn-overlay:hover { background: rgba(0,0,0,0.1); }
+        .play-icon { font-size: 2rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); transition: 0.3s; }
+        .play-btn-overlay:hover .play-icon { transform: scale(1.2); }
+
+        .card-body { padding: 15px; }
+        .ex-title { font-size: 1.1rem; font-weight: 700; margin: 0 0 5px; color: var(--text); }
+        .ex-meta { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--dim); margin-bottom: 12px; }
+        .ex-desc { font-size: 0.9rem; line-height: 1.5; color: #dcdde1; margin-bottom: 15px; min-height: 60px; }
+
+        .btn-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+        .btn { border: none; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .btn-vid { background: #353b48; color: white; }
+        .btn-vid:hover { background: #3c4656; }
+        .btn-timer { background: var(--primary); color: white; width: 50px; }
+
+        /* --- SPOTIFY PLAYER --- */
+        .spotify-wrapper {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: #000; z-index: 500;
+            border-top: 1px solid #333;
+            transform: translateY(100%); /* Oculto por defecto */
+            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .spotify-wrapper.open { transform: translateY(0); }
+        
+        .music-toggle {
+            position: fixed; bottom: 20px; right: 20px;
+            width: 50px; height: 50px; border-radius: 50%;
+            background: #1DB954; /* Spotify Green */
+            border: none; color: white; font-size: 1.5rem;
+            box-shadow: 0 4px 15px rgba(29, 185, 84, 0.4);
+            cursor: pointer; z-index: 600;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.3s;
+        }
+        .music-toggle:hover { transform: scale(1.1); }
+
+        /* --- UTILS --- */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-box { width: 90%; max-width: 800px; aspect-ratio: 16/9; background: black; }
+        iframe { width: 100%; height: 100%; border: none; }
+        .close-vid { position: absolute; top: 20px; right: 20px; padding: 10px 20px; background: white; border-radius: 20px; cursor: pointer; font-weight: bold; }
+        
+        .timer-float {
+            position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) scale(0);
+            background: rgba(232, 65, 24, 0.95); padding: 10px 25px; border-radius: 30px;
+            color: white; font-weight: bold; font-size: 1.2rem;
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 550; display: flex; align-items: center; gap: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+        }
+        .timer-float.active { transform: translateX(-50%) scale(1); }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-inner">
+        <div class="controls-row">
+            <h1>FitZone V6</h1>
+            
+            <div class="switch-container" id="contextSwitch" onclick="app.toggleContext()">
+                <div class="switch-slider"></div>
+                <div class="switch-option">🏠 CASA</div>
+                <div class="switch-option">💪 GYM</div>
+            </div>
+        </div>
+
+        <select class="level-select" id="levelSelect" onchange="app.render()">
+            <option value="beginner">Nivel 1: Pérdida de Peso (Controlado)</option>
+            <option value="advanced">Nivel 2: Fuerza & Hipertrofia</option>
+        </select>
+        
+        <div style="margin-top: 15px;"></div>
+        <div class="day-scroller" id="dayNav"></div>
+    </div>
+</header>
+
+<div class="container">
+    <div style="margin: 20px 0;">
+        <h2 id="routineTitle" style="margin:0;">Cargando...</h2>
+        <span id="contextBadge" class="context-badge bg-home">Modo Casa</span>
+    </div>
+    <div id="grid" class="cards-grid"></div>
+</div>
+
+<button class="music-toggle" onclick="app.toggleMusic()">🎵</button>
+
+<div class="spotify-wrapper" id="musicPanel">
+    <iframe style="border-radius:12px" src="https://open.spotify.com/embed/playlist/37i9dQZF1DX76Wlfdnj7AP?utm_source=generator&theme=0" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+</div>
+
+<div id="timer" class="timer-float">
+    <span id="timerDisplay">00:00</span>
+    <span style="cursor:pointer; opacity:0.7" onclick="app.stopTimer()">✕</span>
+</div>
+
+<div id="videoModal" class="modal">
+    <button class="close-vid" onclick="app.closeVideo()">Cerrar</button>
+    <div class="modal-box">
+        <iframe id="videoFrame" src=""></iframe>
+    </div>
+</div>
+
+<audio id="beep" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
+<script>
+    const app = {
+        state: {
+            day: new Date().getDay(),
+            context: 'home', // 'home' or 'gym'
+            level: 'beginner',
+            timer: null
+        },
+
+        // BASE DE DATOS ESTRUCTURADA POR PATRONES DE MOVIMIENTO
+        // Esto permite intercambiar ejercicios (Casa vs Gym) manteniendo el mismo estímulo.
+        routines: {
+            1: { 
+                name: "Lunes: Pecho & Tríceps",
+                exercises: [
+                    {
+                        muscle: "Pecho Global",
+                        home: { title: "Flexiones (Silla/Suelo)", vid: "IODxDxX7oi4", desc: "Usa una silla para reducir carga (Nivel 1) o suelo (Nivel 2)." },
+                        gym: { title: "Press de Pecho en Máquina", vid: "8xNRkGj8vVo", desc: "La máquina estabiliza el movimiento. Siéntate y empuja al frente." },
+                        reps: { beginner: "3 x 12", advanced: "4 x 15" }, rest: 60
+                    },
+                    {
+                        muscle: "Hombro Anterior",
+                        home: { title: "Press Militar (Botellas)", vid: "B-aVuyhvLHU", desc: "Sentado en silla. Espalda recta. Sube las botellas sobre la cabeza." },
+                        gym: { title: "Press de Hombros Máquina", vid: "WvLMauqrnK8", desc: "Ajusta el asiento. Empuja hacia arriba sin bloquear codos." },
+                        reps: { beginner: "3 x 10", advanced: "4 x 12" }, rest: 60
+                    },
+                    {
+                        muscle: "Tríceps",
+                        home: { title: "Fondos en Silla", vid: "tKjcgfu44sI", desc: "Baja la cadera rozando la silla. No abras los codos." },
+                        gym: { title: "Extensión de Tríceps Polea", vid: "6Fxibk2n3rM", desc: "Usa la cuerda. Mantén los codos pegados a las costillas." },
+                        reps: { beginner: "3 x 10", advanced: "3 x 15" }, rest: 45
+                    },
+                    {
+                        muscle: "Pecho Apertura",
+                        home: { title: "Aperturas en Suelo", vid: "Iwe688TLkRU", desc: "Como un abrazo grande. Usa botellas o latas." },
+                        gym: { title: "Peck Deck (Mariposa)", vid: "FDay9wFe5uE", desc: "Contrae el pecho un segundo completo al cerrar los brazos." },
+                        reps: { beginner: "3 x 15", advanced: "3 x 20" }, rest: 45
+                    }
+                ]
+            },
+            2: { 
+                name: "Martes: Espalda & Bíceps",
+                exercises: [
+                    {
+                        muscle: "Dorsal Ancho",
+                        home: { title: "Remo Unilateral (Mesa/Silla)", vid: "pYcpY20QaE8", desc: "Apoya una mano. Tira el peso hacia la cadera." },
+                        gym: { title: "Jalón al Pecho (Lat Pull)", vid: "CAwf7n6Luuc", desc: "Clave para la 'V'. Tira la barra hacia la parte alta del pecho." },
+                        reps: { beginner: "3 x 12", advanced: "4 x 12" }, rest: 60
+                    },
+                    {
+                        muscle: "Espalda Media",
+                        home: { title: "Superman (Suelo)", vid: "z6PJMT2y8GQ", desc: "Eleva pecho y piernas. Fortalece lumbares sin peso." },
+                        gym: { title: "Remo Sentado en Polea", vid: "GZbfZ033f74", desc: "Espalda recta. Tira el agarre hacia el ombligo." },
+                        reps: { beginner: "3 x 15s", advanced: "3 x 15" }, rest: 60
+                    },
+                    {
+                        muscle: "Bíceps",
+                        home: { title: "Curl con Botellas", vid: "ykJmrZ5v0Oo", desc: "De pie. Sube el peso controlando la bajada." },
+                        gym: { title: "Curl con Barra Z o Polea", vid: "kwG2ipFRgfo", desc: "Usa la polea baja para tensión constante." },
+                        reps: { beginner: "3 x 15", advanced: "3 x 12" }, rest: 45
+                    }
+                ]
+            },
+            3: { 
+                name: "Miércoles: Piernas (Seguro)",
+                exercises: [
+                    {
+                        muscle: "Cuádriceps",
+                        home: { title: "Box Squat (Silla)", vid: "aclHkVaku9U", desc: "Siéntate y levántate. Protege tus rodillas al 100%." },
+                        gym: { title: "Prensa de Piernas", vid: "IZxyjW7MPjq", desc: "Coloca pies arriba en la plataforma. Empuja con talones." },
+                        reps: { beginner: "3 x 15", advanced: "4 x 15" }, rest: 90
+                    },
+                    {
+                        muscle: "Femoral/Glúteo",
+                        home: { title: "Puente de Glúteo", vid: "8bbE64NuDTU", desc: "Boca arriba, eleva cadera. Aprieta fuerte arriba." },
+                        gym: { title: "Curl Femoral Tumbado", vid: "1Tq3QdYUuHs", desc: "Flexiona rodillas llevando talones al glúteo." },
+                        reps: { beginner: "3 x 15", advanced: "3 x 15" }, rest: 60
+                    },
+                    {
+                        muscle: "Movilidad/Fuerza",
+                        home: { title: "Step Up (Escalón)", vid: "C0sM6QZ_oIQ", desc: "Sube y baja escalón. Control total." },
+                        gym: { title: "Extensión de Cuádriceps", vid: "YyvSfVjQeL0", desc: "Siéntate bien atrás. Estira las piernas completamente." },
+                        reps: { beginner: "3 x 10/pierna", advanced: "3 x 15" }, rest: 60
+                    }
+                ]
+            },
+            4: { name: "Jueves: Cardio & Core", exercises: [ /* Similares lógica híbrida */ 
+                    { muscle: "Cardio", home: {title: "Shadow Boxing", vid: "1e1t12-N6hk", desc:"Golpes al aire"}, gym: {title: "Elíptica", vid: "", desc: "30 mins ritmo medio. Bajo impacto."}, reps:{beginner:"20 min", advanced:"30 min"}, rest:0 },
+                    { muscle: "Core", home: {title: "Plancha", vid: "ASdvN_XEl_c", desc:"Estático"}, gym: {title: "Crunch en Máquina", vid: "INW7Z0f9wK0", desc: "Contracción abdominal"}, reps:{beginner:"3x30s", advanced:"3x60s"}, rest:45 }
+            ]}, 
+            5: { name: "Viernes: Full Body", exercises: [ 
+                    { muscle: "Metabólico", home: {title: "Thrusters (Botellas)", vid: "4maCr0p91v0", desc:"Sentadilla + Press"}, gym: {title: "Kettlebell Swing", vid: "v18QOAS0bCg", desc: "Balanceo de pesa rusa con cadera."}, reps:{beginner:"3x12", advanced:"4x15"}, rest:90 },
+                    { muscle: "Tracción", home: {title: "Remo Invertido (Mesa)", vid: "MJTUso2c5sE", desc:"Debajo de mesa"}, gym: {title: "Jalón al Pecho", vid: "CAwf7n6Luuc", desc: "Agarre estrecho"}, reps:{beginner:"3x10", advanced:"3x12"}, rest:60 }
+            ]}, 
+            6: { isRest: true, name: "Sábado Activo" },
+            0: { isRest: true, name: "Domingo Descanso" }
+        },
+
+        // --- LÓGICA ---
+        init() {
+            this.renderDayNav();
+            this.render();
+        },
+
+        renderDayNav() {
+            const days = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+            const nav = document.getElementById('dayNav');
+            nav.innerHTML = days.map((d, i) => `
+                <button class="day-btn ${i === this.state.day ? 'active' : ''}" 
+                        onclick="app.setDay(${i})">${d}</button>
+            `).join('');
+        },
+
+        setDay(d) {
+            this.state.day = d;
+            this.renderDayNav();
+            this.render();
+        },
+
+        toggleContext() {
+            this.state.context = this.state.context === 'home' ? 'gym' : 'home';
+            // Animación Switch
+            const sw = document.getElementById('contextSwitch');
+            this.state.context === 'gym' ? sw.classList.add('gym-active') : sw.classList.remove('gym-active');
+            
+            // Render
+            this.render();
+        },
+
+        toggleMusic() {
+            const panel = document.getElementById('musicPanel');
+            panel.classList.toggle('open');
+        },
+
+        render() {
+            const { day, context, level } = this.state;
+            const routine = this.routines[day];
+            
+            // Actualizar UI Títulos y Badge
+            const badge = document.getElementById('contextBadge');
+            document.getElementById('routineTitle').innerText = routine.isRest ? "Recuperación" : routine.name;
+            
+            if (context === 'home') {
+                badge.innerText = "🏠 MODO CASA";
+                badge.className = "context-badge bg-home";
+            } else {
+                badge.innerText = "💪 MODO GYM";
+                badge.className = "context-badge bg-gym";
+            }
+
+            const grid = document.getElementById('grid');
+
+            if (routine.isRest) {
+                grid.innerHTML = `<div style="text-align:center; padding:40px; color:#7f8c8d;"><h3>Día Libre</h3><p>Camina, estira y come bien.</p></div>`;
+                return;
+            }
+
+            // Generar tarjetas dinámicas
+            grid.innerHTML = routine.exercises.map(ex => {
+                const data = ex[context]; // Selecciona 'home' o 'gym' object
+                // Generar gradiente aleatorio suave para el header
+                const hue = Math.floor(Math.random() * 360);
+                const bgStyle = `background: linear-gradient(135deg, hsl(${hue}, 60%, 20%), #1e272e)`;
+
+                return `
+                <div class="card">
+                    <div class="card-header" style="${bgStyle}">
+                        <div class="play-btn-overlay" onclick="app.openVideo('${data.vid}')">
+                            <div class="play-icon">▶</div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div style="font-size:0.7rem; color:var(--dim); text-transform:uppercase; font-weight:bold; margin-bottom:5px;">
+                            ${ex.muscle}
+                        </div>
+                        <h3 class="ex-title">${data.title}</h3>
+                        <div class="ex-meta">
+                            <span>🔄 ${ex.reps[level]}</span>
+                            <span>⏱ ${ex.rest}s</span>
+                        </div>
+                        <p class="ex-desc">${data.desc}</p>
+                        
+                        <div class="btn-row">
+                            <button class="btn btn-vid" onclick="app.openVideo('${data.vid}')">Ver Técnica</button>
+                            <button class="btn btn-timer" onclick="app.startTimer(${ex.rest})">⏱</button>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        },
+
+        // --- UTILS VIDEO & TIMER ---
+        openVideo(id) {
+            // Si no hay video (ej. elíptica), no hacer nada o alertar
+            if(!id) return; 
+            const m = document.getElementById('videoModal');
+            const f = document.getElementById('videoFrame');
+            f.src = `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`;
+            m.style.display = 'flex';
+        },
+        closeVideo() {
+            document.getElementById('videoModal').style.display = 'none';
+            document.getElementById('videoFrame').src = '';
+        },
+        startTimer(s) {
+            clearInterval(this.state.timer);
+            const disp = document.getElementById('timerDisplay');
+            const float = document.getElementById('timer');
+            const beep = document.getElementById('beep');
+            let left = s;
+            
+            float.classList.add('active');
+            disp.innerText = `00:${left}`;
+
+            this.state.timer = setInterval(() => {
+                left--;
+                disp.innerText = `00:${left < 10 ? '0'+left : left}`;
+                if (left <= 0) {
+                    clearInterval(this.state.timer);
+                    beep.play();
+                    float.style.background = '#2ed573';
+                    setTimeout(() => {
+                        float.classList.remove('active');
+                        float.style.background = '';
+                    }, 2000);
+                }
+            }, 1000);
+        },
+        stopTimer() {
+            clearInterval(this.state.timer);
+            document.getElementById('timer').classList.remove('active');
+        }
+    };
+
+    app.init();
+</script>
+</body>
+</html>
